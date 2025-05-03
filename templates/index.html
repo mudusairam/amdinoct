@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AMD Detection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+
+        h2 {
+            color: #333;
+        }
+
+        form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            display: inline-block;
+            margin-top: 20px;
+        }
+
+        input[type="file"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background: #fff;
+        }
+
+        button {
+            background: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background: #218838;
+        }
+
+        .bold {
+            font-weight: bold;
+            color: #28a745;
+        }
+
+        .step-label {
+            font-size: 18px;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        .arrow {
+            font-size: 24px;
+            color: #28a745;
+            margin: 0 10px;
+        }
+
+        .image-container {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        .image-container img {
+            max-width: 300px;
+            margin: auto;
+            box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.2);
+        }
+        .result-container {
+    display: flex;
+    justify-content: space-around; /* Distribute the boxes evenly */
+    gap: 20px; /* Optional gap between the boxes */
+    margin-top: 20px;
+    flex-wrap: wrap; /* Wrap to next line if screen is too small */
+}
+
+.result-box, .prediction-box {
+    width: 200px; /* Set fixed width for all boxes */
+    height: 100px; /* Set fixed height for all boxes to make them equal in size */
+    padding: 20px;
+    background: white;
+    margin: 10px;
+    border-radius: 8px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column; /* Ensure children are stacked vertically */
+    justify-content: space-around; /* Center content vertically */
+    align-items: center; /* Center content horizontally */
+    text-align: center; /* Make sure text is centered */
+}
+
+.prediction-box {
+    width: 200px; /* Make the prediction box slightly larger */
+}
+
+
+    </style>
+</head>
+<body>
+    <h2>AMD Detection</h2>
+
+    <form id="upload-form">
+        <input type="file" name="image" accept="image/*" required>
+        <button type="submit">Predict</button>
+    </form>
+
+    <div id="output" class="result-container" style="display: none;">
+        <!-- Sequence of images -->
+         <h2>Process Involved</h2>
+         <hr>
+        <div class="image-container">
+            <div>
+                <div class="step-label">Step-1: Resized Image(496x496)</div>
+                <img id="uploaded-image" style="display:none;" />
+            </div>
+            <span class="arrow">➡️</span>
+            <div>
+                <div class="step-label">Step-2: Binary Thresholded Image</div>
+                <img id="binary-thresholded-image" style="display:none; margin-top: 10px;" />
+            </div>
+            <span class="arrow">➡️</span>
+            <div>
+                <div class="step-label">Step-3: Feature Extraction <br>(Bottom Points Marked)</div>
+                <img id="marked-image" style="display:none; margin-top: 10px;" />
+            </div>
+        </div>
+
+        <!-- Prediction results in three boxes -->
+         <h2 style="margin-top: 2rem;">Result</h2>
+         <hr>
+<!-- Prediction results in three boxes -->
+<div class="result-container">
+    <div class="result-box" id="normal-vs-AMD-box">
+        <h3><span class="bold">NORMAL vs AMD</span></h3>
+        <div id="normal_vs_amd_probabilities"></div>
+    </div>
+
+    <div class="result-box" id="cnv-vs-drusen-box">
+        <h3><span class="bold">CNV vs DRUSEN</span></h3>
+        <div id="cnv_vs_drusen_probabilities"></div>
+    </div>
+
+    <!-- Final Prediction Box -->
+    <div class="prediction-box">
+        <h3 id="final-prediction"></h3>
+    </div>
+</div>
+
+
+    </div>
+
+    <script>
+       document.querySelector("#upload-form").onsubmit = async function(event) {
+    event.preventDefault();
+    const formData = new FormData(this);
+
+    const response = await fetch("/predict", {
+        method: "POST",
+        body: formData
+    });
+
+    const data = await response.json();
+    document.getElementById("output").style.display = "block";
+
+    // Show images
+    if (data.image) {
+        const imgElement = document.getElementById("uploaded-image");
+        imgElement.src = data.image;
+        imgElement.style.display = "block";
+    }
+
+    if (data.binary_thresholded_image) {
+        const thresholdedImageElement = document.getElementById("binary-thresholded-image");
+        thresholdedImageElement.src = data.binary_thresholded_image;
+        thresholdedImageElement.style.display = "block";
+    }
+
+    if (data.marked_image) {
+        const markedImageElement = document.getElementById("marked-image");
+        markedImageElement.src = data.marked_image;
+        markedImageElement.style.display = "block";
+    }
+
+    // Display NORMAL vs AMD probabilities
+    let normalAmdText = "";
+    if (data.normal_vs_amd_probabilities) {
+        for (const [label, prob] of Object.entries(data.normal_vs_amd_probabilities)) {
+            normalAmdText += `${label}: ${(prob * 100).toFixed(2)}%<br>`;
+        }
+    }
+    document.getElementById("normal_vs_amd_probabilities").innerHTML = normalAmdText;
+
+    // Display CNV vs DRUSEN probabilities if NORMAL is not predicted
+    let cnvDrusenText = "";
+    if (data.second_model_prediction === "Predicted as NORMAL") {
+        cnvDrusenText = "<span class='bold'>Predicted as NORMAL</span>";
+        // Display only NORMAL in final prediction box if the first model predicts NORMAL
+        document.getElementById("final-prediction").innerHTML = `<span class="bold">Prediction:</span><br> NORMAL`;
+    } else if (data.cnv_vs_drusen_probabilities) {
+        cnvDrusenText = "";
+        for (const [label, prob] of Object.entries(data.cnv_vs_drusen_probabilities)) {
+            cnvDrusenText += `${label}: ${(prob * 100).toFixed(2)}%<br>`;
+        }
+
+        // Get the class with the highest probability for CNV vs DRUSEN
+        const maxClass = Object.keys(data.cnv_vs_drusen_probabilities).reduce((a, b) =>
+            data.cnv_vs_drusen_probabilities[a] > data.cnv_vs_drusen_probabilities[b] ? a : b
+        );
+
+        // Display the prediction (AMD) with the class (CNV or DRUSEN) from CNV vs DRUSEN
+        document.getElementById("final-prediction").innerHTML = `<span class="bold">Prediction:</span><br> ${data.prediction} (${maxClass})`;
+    }
+    document.getElementById("cnv_vs_drusen_probabilities").innerHTML = cnvDrusenText;
+};
+
+    </script>
+</body>
+</html>
